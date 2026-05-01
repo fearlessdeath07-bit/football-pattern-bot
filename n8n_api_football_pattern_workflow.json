@@ -1,0 +1,245 @@
+{
+  "name": "API-Football Today Minute Pattern Reports",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manualTrigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            { "name": "apiBase", "value": "https://v3.football.api-sports.io" },
+            { "name": "today", "value": "={{$now.toISODate()}}" },
+            { "name": "timezone", "value": "Europe/London" },
+            { "name": "apiKey", "value": "={{$env.API_FOOTBALL_KEY}}" }
+          ],
+          "number": [
+            { "name": "batchSize", "value": 1 }
+          ]
+        }
+      },
+      "id": "setConfig",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.apiBase}}/fixtures",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "date", "value": "={{$json.today}}" },
+            { "name": "timezone", "value": "={{$json.timezone}}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-apisports-key", "value": "={{$json.apiKey}}" }
+          ]
+        },
+        "options": { "response": { "response": { "fullResponse": false } } }
+      },
+      "id": "httpFixtures",
+      "name": "HTTP - Today's Fixtures",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const allowed = new Set([39,78,79,61,135,140,203,204]); // EPL, Bundesliga, 2.Bundesliga, Ligue 1, Serie A, La Liga, Super Lig, 1. Lig\nconst resp = $json.response || [];\nconst fixtures = resp\n  .filter(r => allowed.has(r.league?.id))\n  .map(r => ({\n    fixtureId: r.fixture.id,\n    date: r.fixture.date,\n    leagueId: r.league.id,\n    leagueName: r.league.name,\n    country: r.league.country,\n    homeTeamId: r.teams.home.id,\n    homeTeam: r.teams.home.name,\n    awayTeamId: r.teams.away.id,\n    awayTeam: r.teams.away.name\n  }));\nreturn fixtures.map(f => ({json: f}));"
+      },
+      "id": "codeFilter",
+      "name": "Code - Filter Target Leagues",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": { "batchSize": 1 },
+      "id": "splitFixtures",
+      "name": "Split In Batches - Fixtures",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1130, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$item(0).$node['Set Config'].json.apiBase}}/fixtures",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "team", "value": "={{$json.homeTeamId}}" },
+            { "name": "league", "value": "={{$json.leagueId}}" },
+            { "name": "last", "value": "5" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-apisports-key", "value": "={{$item(0).$node['Set Config'].json.apiKey}}" }
+          ]
+        }
+      },
+      "id": "httpHomeGeneral",
+      "name": "HTTP - Home Last5 League",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 120],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{$item(0).$node['Set Config'].json.apiBase}}/fixtures",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "team", "value": "={{$json.awayTeamId}}" },
+            { "name": "league", "value": "={{$json.leagueId}}" },
+            { "name": "last", "value": "5" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-apisports-key", "value": "={{$item(0).$node['Set Config'].json.apiKey}}" }
+          ]
+        }
+      },
+      "id": "httpAwayGeneral",
+      "name": "HTTP - Away Last5 League",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 260],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{$item(0).$node['Set Config'].json.apiBase}}/fixtures",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "team", "value": "={{$json.homeTeamId}}" },
+            { "name": "league", "value": "={{$json.leagueId}}" },
+            { "name": "last", "value": "5" },
+            { "name": "venue", "value": "home" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-apisports-key", "value": "={{$item(0).$node['Set Config'].json.apiKey}}" }
+          ]
+        }
+      },
+      "id": "httpHomeSpecific",
+      "name": "HTTP - Home Last5 HOME",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{$item(0).$node['Set Config'].json.apiBase}}/fixtures",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "team", "value": "={{$json.awayTeamId}}" },
+            { "name": "league", "value": "={{$json.leagueId}}" },
+            { "name": "last", "value": "5" },
+            { "name": "venue", "value": "away" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-apisports-key", "value": "={{$item(0).$node['Set Config'].json.apiKey}}" }
+          ]
+        }
+      },
+      "id": "httpAwaySpecific",
+      "name": "HTTP - Away Last5 AWAY",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 540],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const fixture = $items('Split In Batches - Fixtures', 0, 0)[0].json;\nconst homeGeneral = ($items('HTTP - Home Last5 League', 0, 0)[0].json.response || []).map(x => x.fixture.id);\nconst awayGeneral = ($items('HTTP - Away Last5 League', 0, 0)[0].json.response || []).map(x => x.fixture.id);\nconst homeSpecific = ($items('HTTP - Home Last5 HOME', 0, 0)[0].json.response || []).map(x => x.fixture.id);\nconst awaySpecific = ($items('HTTP - Away Last5 AWAY', 0, 0)[0].json.response || []).map(x => x.fixture.id);\nreturn [{json: { ...fixture, homeGeneral, awayGeneral, homeSpecific, awaySpecific }}];"
+      },
+      "id": "codeCollectFixtureIds",
+      "name": "Code - Build Fixture Id Sets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1600, 330]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $item(0).$node['Set Config'].json;\nconst inData = $json;\nconst buckets = [[0,15,'0-15'],[15,30,'15-30'],[30,45,'30-45'],[45,60,'45-60'],[60,75,'60-75'],[75,999,'75-90+']];\nconst http = this.helpers.httpRequest;\nasync function hasGoalInBucket(fixtureId){\n  const r = await http({ method:'GET', url:`${cfg.apiBase}/fixtures/events`, qs:{fixture:fixtureId}, headers:{'x-apisports-key':cfg.apiKey}, json:true});\n  const events = r.response || [];\n  const flags = Object.fromEntries(buckets.map(b=>[b[2],false]));\n  for (const e of events){\n    if (e.type !== 'Goal') continue;\n    const m = Number(e.time?.elapsed ?? -1);\n    for (const [a,z,k] of buckets){ if (m >= a && m < z) flags[k] = true; }\n  }\n  return flags;\n}\nasync function summarize(ids){\n  const counts = Object.fromEntries(buckets.map(b=>[b[2],0]));\n  for (const id of ids.slice(0,10)){\n    try {\n      const f = await hasGoalInBucket(id);\n      for (const k of Object.keys(counts)) if (f[k]) counts[k]++;\n      await new Promise(res=>setTimeout(res, 350));\n    } catch (e) {}\n  }\n  return counts;\n}\nconst generalIds = [...inData.homeGeneral, ...inData.awayGeneral].slice(0,10);\nconst specificIds = [...inData.homeSpecific, ...inData.awaySpecific].slice(0,10);\nconst general = await summarize(generalIds);\nconst specific = await summarize(specificIds);\nconst label = (n) => n >= 9 ? 'Very Strong' : (n >= 8 ? 'Strong' : '');\nreturn [{json:{\n  fixture: `${inData.homeTeam} vs ${inData.awayTeam}`,\n  league: `${inData.country} - ${inData.leagueName}`,\n  general: Object.entries(general).map(([k,v]) => ({range:k, count:v, sample:10, strength:label(v)})),\n  specific: Object.entries(specific).map(([k,v]) => ({range:k, count:v, sample:10, strength:label(v)}))\n}}];"
+      },
+      "id": "codeCompute",
+      "name": "Code - Compute Two Reports",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, 330],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {"amount": 1, "unit": "seconds"},
+      "id": "waitRateLimit",
+      "name": "Wait - Rate Limit Guard",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [2040, 330]
+    },
+    {
+      "parameters": {"mode":"append"},
+      "id": "mergeAll",
+      "name": "Merge - Collect All Fixtures",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2260, 330]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = items.map(i => i.json).sort((a,b)=> a.league.localeCompare(b.league) || a.fixture.localeCompare(b.fixture));\nconst out = rows.map(r => ({\n  fixture: r.fixture,\n  league: r.league,\n  general: r.general.map(x => `${x.range}=${x.count}/10${x.strength ? ' ('+x.strength+')' : ''}`).join(' | '),\n  matchSpecific: r.specific.filter(x=>x.strength).map(x => `${x.range}=${x.count}/10 (${x.strength})`).join(' | ') || 'No strong pattern (>=8/10)'\n}));\nreturn out.map(o=>({json:o}));"
+      },
+      "id": "codeFinalTable",
+      "name": "Code - Final Sortable Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2480, 330]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {"main":[[{"node":"Set Config","type":"main","index":0}]]},
+    "Set Config": {"main":[[{"node":"HTTP - Today's Fixtures","type":"main","index":0}]]},
+    "HTTP - Today's Fixtures": {"main":[[{"node":"Code - Filter Target Leagues","type":"main","index":0}]]},
+    "Code - Filter Target Leagues": {"main":[[{"node":"Split In Batches - Fixtures","type":"main","index":0}]]},
+    "Split In Batches - Fixtures": {"main":[
+      [{"node":"HTTP - Home Last5 League","type":"main","index":0},{"node":"HTTP - Away Last5 League","type":"main","index":0},{"node":"HTTP - Home Last5 HOME","type":"main","index":0},{"node":"HTTP - Away Last5 AWAY","type":"main","index":0}],
+      [{"node":"Merge - Collect All Fixtures","type":"main","index":1}]
+    ]},
+    "HTTP - Home Last5 League": {"main":[[{"node":"Code - Build Fixture Id Sets","type":"main","index":0}]]},
+    "HTTP - Away Last5 League": {"main":[[{"node":"Code - Build Fixture Id Sets","type":"main","index":0}]]},
+    "HTTP - Home Last5 HOME": {"main":[[{"node":"Code - Build Fixture Id Sets","type":"main","index":0}]]},
+    "HTTP - Away Last5 AWAY": {"main":[[{"node":"Code - Build Fixture Id Sets","type":"main","index":0}]]},
+    "Code - Build Fixture Id Sets": {"main":[[{"node":"Code - Compute Two Reports","type":"main","index":0}]]},
+    "Code - Compute Two Reports": {"main":[[{"node":"Wait - Rate Limit Guard","type":"main","index":0}]]},
+    "Wait - Rate Limit Guard": {"main":[[{"node":"Merge - Collect All Fixtures","type":"main","index":0},{"node":"Split In Batches - Fixtures","type":"main","index":0}]]},
+    "Merge - Collect All Fixtures": {"main":[[{"node":"Code - Final Sortable Report","type":"main","index":0}]]}
+  },
+  "settings": {"executionOrder":"v1"}
+}
