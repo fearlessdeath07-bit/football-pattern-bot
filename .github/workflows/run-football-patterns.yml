@@ -1,0 +1,23 @@
+name: Run Football Minute Patterns
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-pattern:
+    runs-on: ubuntu-latest
+
+    env:
+      API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Script
+        run: python run_today_strongest_patterns.py
